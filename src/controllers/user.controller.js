@@ -211,10 +211,39 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
+// const changeCurrentPassword = asyncHandler(async (req, res) => {
+//   const { oldPassword, newPassword } = req.body;
+
+//   const user = User.findById(req.user?._id);
+//   const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+//   if (!isPasswordCorrect) {
+//     throw new ApiErrors(400, "Old password is incorrect");
+//   }
+
+//   user.password = newPassword;
+
+//   await user.save({
+//     validateBeforeSave: false,
+//   });
+
+//   return res.status(200).json(new ApiResponse(200, {}, "Password changed"));
+// });
+
 const changeCurrentPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
-  const user = User.findById(req.user?._id);
+  const user = await User.findById(req.user?._id);
+  
+  if (!user) {
+    throw new ApiErrors(404, "User not found");
+  }
+
+  if (typeof user.isPasswordCorrect !== 'function') {
+    console.error('isPasswordCorrect method is not defined on the user object');
+    throw new ApiErrors(500, "An error occurred while changing the password");
+  }
+
   const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
 
   if (!isPasswordCorrect) {
@@ -222,12 +251,9 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
   }
 
   user.password = newPassword;
+  await user.save({ validateBeforeSave: false });
 
-  await user.save({
-    validateBeforeSave: false,
-  });
-
-  return res.status(200).json(new ApiResponse(200, {}, "Password changed"));
+  return res.status(200).json(new ApiResponse(200, {}, "Password changed successfully"));
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
@@ -253,6 +279,10 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     },
     { new: true }
   ).select("-password");
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
 
   return res
     .status(200)
