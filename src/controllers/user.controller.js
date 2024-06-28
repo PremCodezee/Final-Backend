@@ -242,7 +242,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     throw new ApiErrors(400, "fullName and email are required");
   }
 
-  const user = User.findByIdAndUpdate(
+  const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
       $set: {
@@ -263,6 +263,11 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 
   if (!avatarLocalPath) {
     throw new ApiErrors(400, "Avatar is Missing");
+  }
+
+  // delete old image
+  if (req.user?.avatar) {
+    await cloudinary.uploader.destroy(req.user?.avatar);
   }
 
   const avatar = await uploadOnCloudinary(avatarLocalPath);
@@ -314,6 +319,78 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Cover Image updated successfully"));
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  if (!username?.trim()) {
+    throw new ApiErrors(400, "username is missing");
+  }
+
+  // aggregate
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(),
+      },
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribeTo",
+      },
+
+      $addFields: {
+        subscriberCount: {
+          $size: "$subscribers",
+        },
+        channelsSubscribeToCount: {
+          $size: "$subscribeTo",
+        },
+        isSubscribed: {
+          $cond: {
+            if: {
+              $in: [req.user?._id, "$subscribers.subscriber"],
+            },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        fullName: 1,
+        username: 1,
+        avatar: 1,
+        subscriberCount: 1,
+        channelsSubscribeToCount: 1,
+        isSubscribed: 1,
+      },
+    },
+  ]);
+
+  // what datatype aggregate returns
+  // console.log(channel);
+
+  if (!channel?.length) {
+    throw new ApiErrors(404, "Channel does not exist");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, channel[0], "User Channel Fetched Successfully")
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -324,4 +401,5 @@ export {
   updateAccountDetails,
   updateUserAvatar,
   updateUserCoverImage,
+  getUserChannelProfile,
 };
