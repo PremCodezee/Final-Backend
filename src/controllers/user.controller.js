@@ -234,13 +234,13 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
   const user = await User.findById(req.user?._id);
-  
+
   if (!user) {
     throw new ApiErrors(404, "User not found");
   }
 
-  if (typeof user.isPasswordCorrect !== 'function') {
-    console.error('isPasswordCorrect method is not defined on the user object');
+  if (typeof user.isPasswordCorrect !== "function") {
+    console.error("isPasswordCorrect method is not defined on the user object");
     throw new ApiErrors(500, "An error occurred while changing the password");
   }
 
@@ -253,7 +253,9 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
   user.password = newPassword;
   await user.save({ validateBeforeSave: false });
 
-  return res.status(200).json(new ApiResponse(200, {}, "Password changed successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password changed successfully"));
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
@@ -296,10 +298,10 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     throw new ApiErrors(400, "Avatar is Missing");
   }
 
-  // delete old image
-  if (req.user?.avatar) {
-    await cloudinary.uploader.destroy(req.user?.avatar);
-  }
+  // // delete old image
+  // if (req.user?.avatar) {
+  //   await cloudinary.uploader.destroy(req.user.avatar);
+  // }
 
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
@@ -363,21 +365,25 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     {
       $match: {
         username: username?.toLowerCase(),
-      },
+      }
+    },
+    {
       $lookup: {
         from: "subscriptions",
         localField: "_id",
         foreignField: "channel",
         as: "subscribers",
-      },
-
+      }
+    },
+    {
       $lookup: {
         from: "subscriptions",
         localField: "_id",
         foreignField: "subscriber",
         as: "subscribeTo",
-      },
-
+      }
+    },
+    {
       $addFields: {
         subscriberCount: {
           $size: "$subscribers",
@@ -387,14 +393,12 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         },
         isSubscribed: {
           $cond: {
-            if: {
-              $in: [req.user?._id, "$subscribers.subscriber"],
-            },
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
             then: true,
             else: false,
           },
         },
-      },
+      }
     },
     {
       $project: {
@@ -404,8 +408,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         subscriberCount: 1,
         channelsSubscribeToCount: 1,
         isSubscribed: 1,
-      },
-    },
+      }
+    }
   ]);
 
   // what datatype aggregate returns
