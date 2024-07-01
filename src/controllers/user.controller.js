@@ -143,7 +143,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: { refreshToken: undefined },
+      $set: { refreshToken: 1 }, // remove field from document
     },
     { new: true }
   );
@@ -365,7 +365,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     {
       $match: {
         username: username?.toLowerCase(),
-      }
+      },
     },
     {
       $lookup: {
@@ -373,7 +373,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         localField: "_id",
         foreignField: "channel",
         as: "subscribers",
-      }
+      },
     },
     {
       $lookup: {
@@ -381,7 +381,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         localField: "_id",
         foreignField: "subscriber",
         as: "subscribeTo",
-      }
+      },
     },
     {
       $addFields: {
@@ -398,7 +398,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
             else: false,
           },
         },
-      }
+      },
     },
     {
       $project: {
@@ -408,8 +408,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         subscriberCount: 1,
         channelsSubscribeToCount: 1,
         isSubscribed: 1,
-      }
-    }
+      },
+    },
   ]);
 
   // what datatype aggregate returns
@@ -436,7 +436,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "videos",
-        localField: "watchHistory.video",
+        localField: "watchHistory",
         foreignField: "_id",
         as: "watchHistory",
         pipeline: [
@@ -460,7 +460,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
           {
             $addFields: {
               owner: {
-                $arrayElemAt: ["$owner", 0],
+                $first: "$owner",
               },
             },
           },
@@ -469,8 +469,8 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     },
   ]);
 
-  if (!user?.length) {
-    throw new ApiErrors(404, "User not found or exist");
+  if (!user || user.length === 0) {
+    throw new ApiErrors(404, "User not found");
   }
 
   return res
